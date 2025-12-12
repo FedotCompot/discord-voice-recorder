@@ -1,0 +1,11 @@
+services:
+  bot:
+    build:
+      context: .
+    develop:
+      watch:
+        - path: ./
+          action: rebuild
+    env_file: .env
+    volumes:
+      - ./recordings:/app/recordings
