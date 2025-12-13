@@ -156,7 +156,7 @@ async function startRecording(member, channel, sessionFolder) {
 
     const userFolder = path.join(sessionFolder, username);
     if (!fs.existsSync(userFolder)) fs.mkdirSync(userFolder);
-    const output = fs.createWriteStream(path.join(userFolder, `${new Date().toISOString()}.ogg`));
+    const output = fs.createWriteStream(path.join(userFolder, `${Date.now()}.ogg`));
     const oggStream = new prism.opus.OggLogicalBitstream({
         opusHead: new prism.opus.OpusHead({
             channelCount: 2,
