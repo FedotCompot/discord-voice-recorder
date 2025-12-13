@@ -52,6 +52,9 @@ const rest = new REST().setToken(config.BOT_TOKEN);
 
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
+    if (!config.AUTHORIZED_USERS.some(u => u == interaction.user.id)) {
+        interaction.reply({ content: 'User not authorized', ephemeral: true });
+    }
 
     if (interaction.commandName === 'record') {
         await handleRecord(interaction);
