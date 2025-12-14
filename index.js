@@ -153,7 +153,7 @@ async function startRecording(member, channel, sessionFolder) {
     const opusStream = receiver.subscribe(userId, {
         end: {
             behavior: EndBehaviorType.AfterSilence,
-            duration: 10,
+            duration: 100,
         },
     });
 
