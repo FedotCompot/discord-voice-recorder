@@ -23,8 +23,8 @@ const client = new Client({
 
 console.log(config)
 
-const stopRecording = {}
-
+const stopRecordingById = {}
+const stopUserRecording = {}
 // Ensure folder exists
 if (!fs.existsSync(config.RECORDINGS_FOLDER)) fs.mkdirSync(config.RECORDINGS_FOLDER);
 
@@ -69,7 +69,7 @@ client.on('interactionCreate', async interaction => {
  * @returns 
  */
 async function handleStop(interaction) {
-    const stopper = stopRecording[interaction.guildId]
+    const stopper = stopRecordingById[interaction.guildId]
     if (stopper) stopper()
     await interaction.reply(`🎙️ Recording stopped`);
 }
@@ -109,24 +109,26 @@ async function handleRecord(interaction) {
     fs.mkdirSync(sessionFolder);
 
     channel.members.forEach(member => startRecording(member, channel, sessionFolder));
-    const listener = (oldState, newState) => {
-        // User joins the channel
-        if (oldState.channelId === channel.id) return;
-        if (newState.channelId === channel.id && newState.member) {
-            startRecording(newState.member, channel, sessionFolder);
-        }
-    }
     connection.receiver.speaking.on('start', async (userId) => {
-        //actions here
-        if (!channel.guild.members.cache.get(userId)) {
+        let user = channel.guild.members.cache.get(userId)
+        if (!user) {
             await channel.guild.members.fetch()
+            user = channel.guild.members.cache.get(userId)
         }
-        startRecording(channel.guild.members.cache.get(userId), channel, sessionFolder)
+        startRecording(user, channel, sessionFolder)
     })
-    client.on('voiceStateUpdate', listener);
-    stopRecording[interaction.guildId] = () => {
-        client.off('voiceStateUpdate', listener)
+    connection.receiver.speaking.on('end', async (userId) => {
+        stopRecording(userId)
+    })
+    stopRecordingById[interaction.guildId] = () => {
         connection.disconnect()
+    }
+}
+
+function stopRecording(userId) {
+    if (stopUserRecording[userId]) {
+        stopUserRecording[userId]()
+        delete stopUserRecording[userId]
     }
 }
 
@@ -152,10 +154,11 @@ async function startRecording(member, channel, sessionFolder) {
 
     const opusStream = receiver.subscribe(userId, {
         end: {
-            behavior: EndBehaviorType.AfterSilence,
-            duration: 100,
+            behavior: EndBehaviorType.Manual,
         },
     });
+    stopRecording(userId)
+    stopUserRecording[userId] = () => opusStream.destroy();
 
     const userFolder = path.join(sessionFolder, username);
     if (!fs.existsSync(userFolder)) fs.mkdirSync(userFolder);
@@ -172,10 +175,12 @@ async function startRecording(member, channel, sessionFolder) {
 
     try {
         await pipeline(opusStream, oggStream, output);
-
-        console.log(`✅ Recorded ${username}`);
     } catch (error) {
-        console.warn(`❌ Error recording ${username} - ${error.message}`);
+        if (error.message === "Premature close") {
+            console.log(`✅ Recorded ${username}`);
+        } else {
+            console.warn(`❌ Error recording ${username} - ${error.message}`);
+        }
     }
 
 }
